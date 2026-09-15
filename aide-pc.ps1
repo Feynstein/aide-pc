@@ -27,8 +27,29 @@ if (-not (Test-Admin)) {
 $pub = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKqNOu+CExYBd3jIvfi9KoCfL25WrCdZqd+SV+5C2x/Z aide-richard'
 
 Write-Host "[1/5] Installation du serveur OpenSSH..." -ForegroundColor Cyan
-$cap = Get-WindowsCapability -Online -Name 'OpenSSH.Server*'
-if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 | Out-Null }
+$cap = Get-WindowsCapability -Online -Name 'OpenSSH.Server*' | Select-Object -First 1
+if ($cap -and $cap.State -ne 'Installed') {
+  try { Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 | Out-Null }
+  catch { Write-Host "  (Windows Update indisponible, on tentera le paquet autonome)" -ForegroundColor Yellow }
+}
+# S'assurer que le service sshd existe vraiment (le paquet l'oublie parfois)
+if (-not (Get-Service -Name sshd -ErrorAction SilentlyContinue)) {
+  $inst = Join-Path $env:WinDir 'System32\OpenSSH\install-sshd.ps1'
+  if (Test-Path $inst) { & $inst | Out-Null }
+}
+# Repli autonome, independant de Windows Update : MSI officiel Microsoft/PowerShell
+if (-not (Get-Service -Name sshd -ErrorAction SilentlyContinue)) {
+  Write-Host "  Installation du paquet autonome OpenSSH..." -ForegroundColor Yellow
+  $a = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'ARM64' } else { 'Win64' }
+  $m = Join-Path $env:TEMP 'openssh.msi'
+  Invoke-WebRequest "https://github.com/PowerShell/Win32-OpenSSH/releases/download/10.0.0.0p2-Preview/OpenSSH-$a-v10.0.0.0.msi" -OutFile $m -UseBasicParsing
+  Start-Process msiexec.exe -ArgumentList "/i `"$m`" /qn /norestart" -Wait
+}
+if (-not (Get-Service -Name sshd -ErrorAction SilentlyContinue)) {
+  Write-Host "ERREUR : impossible d'installer le serveur OpenSSH." -ForegroundColor Red
+  Write-Host "Parametres > Applications > Fonctionnalites facultatives > Ajouter > 'Serveur OpenSSH', puis relance." -ForegroundColor Yellow
+  return
+}
 
 Write-Host "[2/5] Autorisation de la cle de diagnostic..." -ForegroundColor Cyan
 $akf = Join-Path $env:ProgramData 'ssh\administrators_authorized_keys'
