@@ -12,6 +12,7 @@
 param([string]$TsKey)
 
 $ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Test-Admin {
   $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -64,5 +65,6 @@ Start-Sleep -Seconds 3
 $ip = (& $ts ip -4)
 Write-Host ""
 Write-Host "=== TERMINE ===" -ForegroundColor Green
-Write-Host "Adresse privee de ce PC : $ip" -ForegroundColor Green
-Write-Host "Donne cette adresse a la personne qui fait le diagnostic." -ForegroundColor Green
+Write-Host ("Nom d'utilisateur Windows : {0}" -f $env:USERNAME) -ForegroundColor Green
+Write-Host ("Adresse privee de ce PC    : {0}" -f $ip) -ForegroundColor Green
+Write-Host "Donne ces deux infos a la personne qui fait le diagnostic." -ForegroundColor Green
